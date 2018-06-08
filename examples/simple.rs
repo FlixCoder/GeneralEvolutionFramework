@@ -76,7 +76,7 @@ impl GEF for Example
 	fn evaluate(&self) -> f64
 	{
 		let target = 125.0;
-		let error = self.fct - target;
+		let error = target - self.fct;
 		
 		-error * error
 	}

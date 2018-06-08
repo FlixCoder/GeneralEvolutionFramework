@@ -33,7 +33,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	{
 		Optimizer {
 					items: Vec::new(),
-					learn_params: (100, 4, 1, 0.5), //standard parameters
+					learn_params: (50, 4, 1, 0.5), //standard parameters
 				}
 	}
 	
