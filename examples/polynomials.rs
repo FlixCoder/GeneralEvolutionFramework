@@ -16,11 +16,11 @@ const REGULARIZATION:f64 = 0.5; //factor for additional error term (multiplied t
 //optimizing polynomial functions to fit to the points
 fn main()
 {
-	let points = vec![	(0.0, 5.0),
-						(1.0, 2.0),
-						(2.0, 5.0),
-						(4.0, 0.0),
-						(5.0, 3.0)
+	let points = vec![	(0.0, 0.1),
+						(1.0, 1.4),
+						(2.0, 4.0),
+						(3.0, 8.1),
+						(4.0, 16.5)
 					];
 	
 	let mut opt = Optimizer::new();
@@ -151,7 +151,7 @@ impl GEF for Polynome
 		mse /= self.target.len() as f64;
 		
 		//add regularization
-		let reg = REGULARIZATION * self.fct.len() as f64; //regularization
+		let reg = REGULARIZATION * (self.fct.len() -1) as f64; //regularization
 		
 		//return
 		-(mse + reg)
