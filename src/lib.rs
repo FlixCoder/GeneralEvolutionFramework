@@ -38,7 +38,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	}
 	
 	
-	/// Set number of items to live after breeding (maximum amount of item generation)
+	/// Set population size (number of items to live after breeding; maximum amount of item generation)
 	pub fn set_population(&mut self, pop:u32) -> &mut Self
 	{
 		if pop > self.learn_params.1 + self.learn_params.2
@@ -139,7 +139,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	}
 	
 	/// Receive the whole population as reference
-	pub fn get_population(&self) -> &Vec<(T,f64)>
+	pub fn get_items(&self) -> &Vec<(T,f64)>
 	{
 		&self.items
 	}
