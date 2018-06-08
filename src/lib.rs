@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 pub trait GEF
 {
 	/// Uses itself and another item to breed a new item
+	/// Can use averages or selection or both
 	fn breed(&self, other:&Self) -> Self;
 	/// Mutates itself
 	/// Recommendation: use random reinitialization sometimes additional to random add/subtract
