@@ -4,6 +4,10 @@ use rand::Rng;
 
 use std::cmp::Ordering;
 
+//TODO: penalty for new items in evaluation or something to keep good and old items in noisy environments alive
+//TODO: mixed version of selection strats: select x1 best, but x2 items with stochastic strategy -> declare enum for strategies
+//TODO: new selection strats?
+
 
 /// Definition of necessary methods/properties for items to be optimized
 pub trait GEF
