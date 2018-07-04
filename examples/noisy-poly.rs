@@ -11,7 +11,7 @@ const RANGE_NEW:f64 = 5.0; //size of interval to create random factors (-2.5 - 2
 const PROB_MOD:f64 = 0.9; //for every value: probability to modify
 const RANGE_MOD:f64 = 1.0; //size of interval to modify factors (-0.5 - 0.5)
 
-const REGULARIZATION:f64 = 0.5; //factor for additional error term (multiplied to degree)
+const REGULARIZATION:f64 = 0.02; //factor for additional error term (multiplied to degree)
 
 
 //optimizing polynomial functions to fit to the points
@@ -27,20 +27,20 @@ fn main()
 	
 	let mut opt = Optimizer::new();
 	opt.set_population(100)
-		.set_survive(7)
-		.set_bad_survive(3)
-		//.set_prob_mutate(0.9)
-		//.set_selection_strat(true)
-		//.set_mean_avg(1)
+		.set_survive(7) //with selection strat stochastic here:
+		.set_bad_survive(3) //survive + bad_survive is only used, no separation
+		.set_prob_mutate(0.9)
+		.set_selection_strat(false)
+		.set_mean_avg(5)
 		.add_item(Polynome::new(points.clone())) //add two initial items, could be one, could be more
 		.add_item(Polynome::new(points)); //but the more items, the stabler is learning (survive + bad_survive is a good idea)
 	
 	//train
 	for i in 0..10
 	{
-		let n = 5;
+		let n = 10;
 		let score = opt.optimize(n);
-		println!("Score after {:3} iterations: {}", (i + 1) * n, score);
+		println!("Score after {:5} iterations: {}", (i + 1) * n, score);
 	}
 	
 	//output function
@@ -149,14 +149,19 @@ impl GEF for Polynome
 	//evaluate as inverted mean squared error to target (we want to minimize instead of maximize)
 	fn evaluate(&self) -> f64
 	{
-		//calculate mean squared error //maybe use relative error instead of absolute
+		let mut rng = rand::thread_rng();
+		//calculate mean squared error of random batch of points //maybe use absolute error instead of relative
 		let mut mse = 0.0;
-		for point in self.target.iter()
+		let n = 3; //batch size
+		for _ in 0..n
 		{
-			let error = point.1 - calc_f(&self.fct, point.0);
+			let i = rng.gen::<usize>() % self.target.len();
+			let point = &self.target[i];
+			let mut error = point.1 - calc_f(&self.fct, point.0);
+			if point.0 != 0.0 { error /= point.0; }
 			mse += error * error;
 		}
-		mse /= self.target.len() as f64;
+		mse /= n as f64;
 		
 		//add regularization
 		let reg = REGULARIZATION * (self.fct.len() - 1) as f64; //regularization
