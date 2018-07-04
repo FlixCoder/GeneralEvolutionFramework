@@ -231,7 +231,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	{
 		for item in &mut self.items
 		{
-			let score = (item.1 * item.2 as f64 + item.0.evaluate()) / (self.learn_params.5 + 1) as f64;
+			let score = (item.1 * item.2 as f64 + item.0.evaluate()) / (item.2 + 1) as f64;
 			item.1 = score;
 			item.2 = (item.2 + 1).min(self.learn_params.5);
 		}
@@ -273,7 +273,7 @@ impl<T:GEF+Clone> Optimizer<T>
 				let mut index:usize = 0;
 				while contained
 				{
-					index = (rng.gen::<f64>().powf(3.0) * (size - 1) as f64) as usize;
+					index = (rng.gen::<f64>().powf(3.0) * (size) as f64) as usize;
 					contained = set.contains(&index);
 				}
 				set.push(index);
