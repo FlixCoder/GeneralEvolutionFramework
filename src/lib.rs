@@ -21,9 +21,9 @@ pub trait GEF
 /// Evolutionary optimizer maximizing a given score on arbitrary items
 pub struct Optimizer<T:GEF+Clone>
 {
-	items:Vec<(T,f64)>, //items with the according score
+	items: Vec<(T,f64,u32)>, //items with the according score and survived evaluations
 	//all necessary parameters are saved in learn_params and can be modified from the outside
-	learn_params:(u32,u32,u32,f64), //population, survive, bad_survive, prob_mut
+	learn_params: (u32,u32,u32,f64,bool,u32), //population, survive, bad_survive, prob_mut, deterministic_selection, time to mean-avg over (minus 1)
 }
 
 impl<T:GEF+Clone> Optimizer<T>
@@ -33,7 +33,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	{
 		Optimizer {
 					items: Vec::new(),
-					learn_params: (50, 4, 1, 0.5), //standard parameters
+					learn_params: (200, 7, 3, 0.9, true, 0), //standard parameters
 				}
 	}
 	
@@ -110,6 +110,30 @@ impl<T:GEF+Clone> Optimizer<T>
 		self
 	}
 	
+	/// Set selection strategy
+	/// deterministic = true => best x1 items and randomly chosen x2 bad items survive
+	/// deterministic = false => stochastic - x1+x2 items are chosen, probability to survive decreases as cubic function
+	pub fn set_selection_strat(&mut self, deterministic:bool) -> &mut Self
+	{
+		self.learn_params.4 = deterministic;
+		
+		self
+	}
+	
+	/// Set number of iterations to build the mean average of the score over (standard is 1 => no avg)
+	pub fn set_mean_avg(&mut self, n:u32) -> &mut Self
+	{
+		if n < 1
+		{ //no score calculation possible with 0 iterations
+			panic!("Mean-Avg over 0 iterations not possible!");
+		}
+		
+		self.learn_params.5 = n - 1;
+		
+		self
+	}
+	
+	
 	/// Receive the best item from the population as clone
 	/// Will panic if there is no item
 	pub fn get_best(&self) -> T
@@ -139,17 +163,16 @@ impl<T:GEF+Clone> Optimizer<T>
 	}
 	
 	/// Receive the whole population as reference
-	pub fn get_items(&self) -> &Vec<(T,f64)>
+	pub fn get_items(&self) -> &Vec<(T,f64,u32)>
 	{
 		&self.items
 	}
-	
 	
 	/// Add an item to the population
 	pub fn add_item(&mut self, item:T) -> &mut Self
 	{
 		let score = item.evaluate();
-		let item_and_score = (item, score);
+		let item_and_score = (item, score, 1);
 		self.items.push(item_and_score);
 		
 		self
@@ -186,16 +209,18 @@ impl<T:GEF+Clone> Optimizer<T>
 		
 		for _ in 0..missing
 		{
+			//random two items to breed a new item
 			let i1:usize = rng.gen::<usize>() % len;
 			let i2:usize = rng.gen::<usize>() % len;
 			let mut new_item = self.items[i1].0.breed(&self.items[i2].0);
 			
+			//mutate new item
 			if rng.gen::<f64>() < self.learn_params.3
 			{
 				new_item.mutate();
 			}
 			
-			self.items.push((new_item, 0.0)); //add with score 0.0, will be evaluated soon
+			self.items.push((new_item, 0.0, 0)); //add with score 0.0, will be evaluated soon
 		}
 		
 		self
@@ -206,7 +231,9 @@ impl<T:GEF+Clone> Optimizer<T>
 	{
 		for item in &mut self.items
 		{
-			item.1 = item.0.evaluate();
+			let score = (item.1 * item.2 as f64 + item.0.evaluate()) / (self.learn_params.5 + 1) as f64;
+			item.1 = score;
+			item.2 = (item.2 + 1).min(self.learn_params.5);
 		}
 		
 		self
@@ -221,13 +248,43 @@ impl<T:GEF+Clone> Optimizer<T>
 		}
 		
 		let mut rng = rand::thread_rng();
-		let mut bad = self.items.split_off(self.learn_params.1 as usize);
 		
-		for _ in 0..self.learn_params.2
-		{
-			if bad.is_empty() { return self; }
-			let i:usize = rng.gen::<usize>() % bad.len();
-			self.items.push(bad.swap_remove(i));
+		if self.learn_params.4
+		{ //deterministic selection
+			let mut bad = self.items.split_off(self.learn_params.1 as usize); //best items kept
+			
+			//randomly select bad items
+			for _ in 0..self.learn_params.2
+			{
+				if bad.is_empty() { return self; }
+				let i:usize = rng.gen::<usize>() % bad.len();
+				self.items.push(bad.swap_remove(i));
+			}
+		}
+		else
+		{ //stochastic selection
+			let mut set = Vec::new(); //index set to keep items
+			let size = (self.learn_params.1 + self.learn_params.2) as usize;
+			
+			//randomly select distinct items non-uniformly
+			for _ in 0..size
+			{
+				let mut contained = true;
+				let mut index:usize = 0;
+				while contained
+				{
+					index = (rng.gen::<f64>().powf(3.0) * (size - 1) as f64) as usize;
+					contained = set.contains(&index);
+				}
+				set.push(index);
+			}
+			//efficiently keep only items indexed in the set
+			set.sort_unstable();
+			for i in 0..size
+			{
+				self.items.swap(i, set[i]);
+			}
+			self.items.truncate(size);
 		}
 		
 		self

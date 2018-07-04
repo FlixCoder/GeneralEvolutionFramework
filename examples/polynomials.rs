@@ -24,10 +24,12 @@ fn main()
 					];
 	
 	let mut opt = Optimizer::new();
-	opt.set_population(100)
-		.set_survive(8)
-		.set_bad_survive(2)
+	opt.set_population(50)
+		.set_survive(7)
+		.set_bad_survive(3)
 		.set_prob_mutate(0.9)
+		.set_selection_strat(false)
+		.set_mean_avg(1)
 		.add_item(Polynome::new(points));
 	
 	//train
@@ -35,7 +37,7 @@ fn main()
 	{
 		let n = 20;
 		let score = opt.optimize(n);
-		println!("Score after {} iterations: {}", (i + 1) * n, score);
+		println!("Score after {:5} iterations: {}", (i + 1) * n, score);
 	}
 	
 	//output function

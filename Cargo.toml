@@ -17,7 +17,6 @@ debug-assertions = true
 [profile.test]
 opt-level = 0
 lto = false
-panic = "unwind"
 debug = true
 debug-assertions = true
 
