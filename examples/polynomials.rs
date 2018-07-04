@@ -3,12 +3,13 @@ extern crate rand;
 
 use genevofra::*;
 use rand::Rng;
+use std::sync::Arc;
 
-const PROB_AVG:f64 = 0.1; //probability to average factors instead of selecting
-const PROB_DEGREE:f64 = 0.01; //probability to increase the degree of a polynomial function by 1
-const PROB_NEW:f64 = 0.05; //for every value: probability to set to random value
-const RANGE_NEW:f64 = 20.0; //size of interval to create random factors
-const RANGE_MOD:f64 = 2.0; //size of interval to modify factors
+const PROB_DEGREE:f64 = 0.02; //probability to increase the degree of a polynomial function by 1
+const PROB_NEW:f64 = 0.05; //probability to set to random values with same degree
+const RANGE_NEW:f64 = 5.0; //size of interval to create random factors (-2.5 - 2.5)
+const PROB_MOD:f64 = 0.9; //for every value: probability to modify
+const RANGE_MOD:f64 = 1.0; //size of interval to modify factors (-0.5 - 0.5)
 
 const REGULARIZATION:f64 = 0.5; //factor for additional error term (multiplied to degree)
 
@@ -19,25 +20,27 @@ fn main()
 	let points = vec![	(0.0, 0.1),
 						(1.0, 1.4),
 						(2.0, 4.0),
-						(3.0, 8.1),
+						(3.0, 8.4),
 						(4.0, 16.5)
 					];
+	let points = Arc::new(points);
 	
 	let mut opt = Optimizer::new();
-	opt.set_population(50)
+	opt.set_population(100)
 		.set_survive(7)
 		.set_bad_survive(3)
-		.set_prob_mutate(0.9)
-		.set_selection_strat(false)
-		.set_mean_avg(1)
-		.add_item(Polynome::new(points));
+		//.set_prob_mutate(0.9)
+		//.set_selection_strat(true)
+		//.set_mean_avg(1)
+		.add_item(Polynome::new(points.clone())) //add two initial items, could be one, could be more
+		.add_item(Polynome::new(points)); //but the more items, the stabler is learning (survive + bad_survive is a good idea)
 	
 	//train
 	for i in 0..10
 	{
-		let n = 20;
+		let n = 5;
 		let score = opt.optimize(n);
-		println!("Score after {:5} iterations: {}", (i + 1) * n, score);
+		println!("Score after {:3} iterations: {}", (i + 1) * n, score);
 	}
 	
 	//output function
@@ -63,12 +66,12 @@ fn calc_f(factors:&Vec<f64>, x:f64) -> f64
 struct Polynome
 {
 	fct:Vec<f64>, //factors accordingly for index => x^index
-	target:Vec<(f64,f64)>, //points that should be matched by the polynomial function
+	target:Arc<Vec<(f64,f64)>>, //points that should be matched by the polynomial function
 }
 
 impl Polynome
 {
-	pub fn new(points:Vec<(f64,f64)>) -> Polynome
+	pub fn new(points:Arc<Vec<(f64,f64)>>) -> Polynome
 	{
 		let mut vec = Vec::new();
 		vec.push(0.0); //constant zero function with degree 0
@@ -94,26 +97,24 @@ impl GEF for Polynome
 	{
 		let mut rng = rand::thread_rng();
 		let mut new = self.clone();
-		//randomly choose between average and selection
-		if rng.gen::<f64>() < PROB_AVG
-		{ //average
-			for i in 0..new.fct.len()
-			{
-				if other.fct.len() <= i { break; }
+		
+		//for every element
+		for i in 0..new.fct.len()
+		{ //randomly decide between averaging, choosing own or choosing other value
+			if other.fct.len() <= i { break; } //account for different degrees
+			
+			let rnd = rng.gen::<f64>();
+			if rnd < 0.333
+			{ //select value from other
+				new.fct[i] = other.fct[i];
+			}
+			else if rnd < 0.666
+			{ //average values
 				new.fct[i] = (new.fct[i] + other.fct[i]) / 2.0;
 			}
+			//else is not necessary, own value chosen
 		}
-		else
-		{ //select (normally selection is more useful, because more variables are chosen randomly, so that it mixes up things)
-			for i in 0..new.fct.len()
-			{
-				if other.fct.len() <= i { break; }
-				if rng.gen::<f64>() < 0.5
-				{ //select value from other randomly
-					new.fct[i] = other.fct[i];
-				} //else is not necessary, already set
-			}
-		}
+		
 		new
 	}
 	
@@ -126,13 +127,18 @@ impl GEF for Polynome
 			self.fct.push(0.0);
 		}
 		
-		for i in 0..self.fct.len()
-		{
-			if rng.gen::<f64>() < PROB_NEW
-			{ //set to random
+		if rng.gen::<f64>() < PROB_NEW
+		{ //set to random
+			for i in 0..self.fct.len()
+			{
 				self.fct[i] = rng.gen::<f64>() * RANGE_NEW - RANGE_NEW / 2.0;
 			}
-			else
+		}
+		
+		//for every value
+		for i in 0..self.fct.len()
+		{ //randomly choose to modify value
+			if rng.gen::<f64>() < PROB_MOD
 			{ //modify randomly
 				let delta = rng.gen::<f64>() * RANGE_MOD - RANGE_MOD / 2.0;
 				self.fct[i] += delta;
@@ -143,9 +149,9 @@ impl GEF for Polynome
 	//evaluate as inverted mean squared error to target (we want to minimize instead of maximize)
 	fn evaluate(&self) -> f64
 	{
-		//calculate mean squared error //TODO: maybe use relative error instead of absolute
+		//calculate mean squared error //maybe use relative error instead of absolute
 		let mut mse = 0.0;
-		for point in &self.target
+		for point in self.target.iter()
 		{
 			let error = point.1 - calc_f(&self.fct, point.0);
 			mse += error * error;
