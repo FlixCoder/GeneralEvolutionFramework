@@ -27,10 +27,10 @@ fn main()
 	
 	let mut opt = Optimizer::new();
 	opt.set_population(100)
-		.set_survive(7)
-		.set_bad_survive(3)
+		//.set_survive(7)
+		//.set_bad_survive(3)
 		//.set_prob_mutate(0.9)
-		//.set_selection_strat(true)
+		//.set_selection_strat(Strat::Deterministic)
 		//.set_mean_avg(1)
 		.add_item(Polynome::new(points.clone())) //add two initial items, could be one, could be more
 		.add_item(Polynome::new(points)); //but the more items, the stabler is learning (survive + bad_survive is a good idea)
@@ -149,7 +149,7 @@ impl GEF for Polynome
 	//evaluate as inverted mean squared error to target (we want to minimize instead of maximize)
 	fn evaluate(&self) -> f64
 	{
-		//calculate mean squared error //maybe use relative error instead of absolute
+		//calculate mean squared error
 		let mut mse = 0.0;
 		for point in self.target.iter()
 		{

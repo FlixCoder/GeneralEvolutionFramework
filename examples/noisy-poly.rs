@@ -8,10 +8,10 @@ use std::sync::Arc;
 const PROB_DEGREE:f64 = 0.02; //probability to increase the degree of a polynomial function by 1
 const PROB_NEW:f64 = 0.05; //probability to set to random values with same degree
 const RANGE_NEW:f64 = 5.0; //size of interval to create random factors (-2.5 - 2.5)
-const PROB_MOD:f64 = 0.9; //for every value: probability to modify
+const PROB_MOD:f64 = 0.75; //for every value: probability to modify
 const RANGE_MOD:f64 = 1.0; //size of interval to modify factors (-0.5 - 0.5)
 
-const REGULARIZATION:f64 = 0.02; //factor for additional error term (multiplied to degree)
+const REGULARIZATION:f64 = 0.01; //factor for additional error term (multiplied to degree)
 
 
 //optimizing polynomial functions to fit to the points
@@ -23,14 +23,20 @@ fn main()
 						(3.0, 8.4),
 						(4.0, 16.5)
 					];
+	/*let points = vec![	(0.0, 0.0),
+						(1.0, 1.0),
+						(2.0, 4.0),
+						(3.0, 9.0),
+						(4.0, 16.0)
+					];*/
 	let points = Arc::new(points);
 	
 	let mut opt = Optimizer::new();
-	opt.set_population(100)
-		.set_survive(7) //with selection strat stochastic here:
-		.set_bad_survive(3) //survive + bad_survive is only used, no separation
+	opt.set_population(250)
+		.set_survive(3)
+		.set_bad_survive(7)
 		.set_prob_mutate(0.9)
-		.set_selection_strat(false)
+		.set_selection_strat(Strat::Mixed)
 		.set_mean_avg(5)
 		.add_item(Polynome::new(points.clone())) //add two initial items, could be one, could be more
 		.add_item(Polynome::new(points)); //but the more items, the stabler is learning (survive + bad_survive is a good idea)
@@ -150,15 +156,14 @@ impl GEF for Polynome
 	fn evaluate(&self) -> f64
 	{
 		let mut rng = rand::thread_rng();
-		//calculate mean squared error of random batch of points //maybe use absolute error instead of relative
+		//calculate mean squared error of random batch of points
 		let mut mse = 0.0;
 		let n = 3; //batch size
 		for _ in 0..n
 		{
 			let i = rng.gen::<usize>() % self.target.len();
 			let point = &self.target[i];
-			let mut error = point.1 - calc_f(&self.fct, point.0);
-			if point.0 != 0.0 { error /= point.0; }
+			let error = point.1 - calc_f(&self.fct, point.0);
 			mse += error * error;
 		}
 		mse /= n as f64;

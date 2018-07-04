@@ -5,7 +5,6 @@ use rand::Rng;
 use std::cmp::Ordering;
 
 //TODO: penalty for new items in evaluation or something to keep good and old items in noisy environments alive
-//TODO: mixed version of selection strats: select x1 best, but x2 items with stochastic strategy -> declare enum for strategies
 //TODO: new selection strats?
 
 
@@ -22,12 +21,21 @@ pub trait GEF
 	fn evaluate(&self) -> f64;
 }
 
+/// Definition of the selection strategy to let the fittest items survive
+#[derive(PartialEq, Clone)]
+pub enum Strat
+{
+	Deterministic,
+	Stochastic,
+	Mixed,
+}
+
 /// Evolutionary optimizer maximizing a given score on arbitrary items
 pub struct Optimizer<T:GEF+Clone>
 {
 	items: Vec<(T,f64,u32)>, //items with the according score and survived evaluations
 	//all necessary parameters are saved in learn_params and can be modified from the outside
-	learn_params: (u32,u32,u32,f64,bool,u32), //population, survive, bad_survive, prob_mut, deterministic_selection, time to mean-avg over (minus 1)
+	learn_params: (u32,u32,u32,f64,Strat,u32), //population, survive, bad_survive, prob_mut, deterministic_selection, time to mean-avg over (minus 1)
 }
 
 impl<T:GEF+Clone> Optimizer<T>
@@ -37,7 +45,7 @@ impl<T:GEF+Clone> Optimizer<T>
 	{
 		Optimizer {
 					items: Vec::new(),
-					learn_params: (200, 7, 3, 0.9, true, 0), //standard parameters
+					learn_params: (200, 7, 3, 0.9, Strat::Deterministic, 0), //standard parameters
 				}
 	}
 	
@@ -115,11 +123,12 @@ impl<T:GEF+Clone> Optimizer<T>
 	}
 	
 	/// Set selection strategy
-	/// deterministic = true => best x1 items and randomly chosen x2 bad items survive
-	/// deterministic = false => stochastic - x1+x2 items are chosen, probability to survive decreases as cubic function
-	pub fn set_selection_strat(&mut self, deterministic:bool) -> &mut Self
+	/// Strat::Deterministic = best "survival" items and randomly chosen "bad_survival" items survive
+	/// Strat::Stochastic = "survival" + "bad_survival" items are chosen, probability to survive decreases as cubic function
+	/// Strat::Mixed = combination of strategies above: "survival" using Deterministic strategy, "bad_survival" using Stochastic strategy
+	pub fn set_selection_strat(&mut self, strat:Strat) -> &mut Self
 	{
-		self.learn_params.4 = deterministic;
+		self.learn_params.4 = strat;
 		
 		self
 	}
@@ -253,7 +262,7 @@ impl<T:GEF+Clone> Optimizer<T>
 		
 		let mut rng = rand::thread_rng();
 		
-		if self.learn_params.4
+		if self.learn_params.4 == Strat::Deterministic
 		{ //deterministic selection
 			let mut bad = self.items.split_off(self.learn_params.1 as usize); //best items kept
 			
@@ -265,7 +274,7 @@ impl<T:GEF+Clone> Optimizer<T>
 				self.items.push(bad.swap_remove(i));
 			}
 		}
-		else
+		else if self.learn_params.4 == Strat::Stochastic
 		{ //stochastic selection
 			let mut set = Vec::new(); //index set to keep items
 			let size = (self.learn_params.1 + self.learn_params.2) as usize;
@@ -289,6 +298,34 @@ impl<T:GEF+Clone> Optimizer<T>
 				self.items.swap(i, set[i]);
 			}
 			self.items.truncate(size);
+		}
+		else
+		{ //mixed selection
+			let mut bad = self.items.split_off(self.learn_params.1 as usize); //best items kept
+			
+			let mut set = Vec::new(); //index set to keep items
+			let size = self.learn_params.2 as usize;
+			
+			//randomly select distinct items non-uniformly
+			for _ in 0..size
+			{
+				let mut contained = true;
+				let mut index:usize = 0;
+				while contained
+				{
+					index = (rng.gen::<f64>().powf(3.0) * (size) as f64) as usize;
+					contained = set.contains(&index);
+				}
+				set.push(index);
+			}
+			//efficiently keep only items indexed in the set
+			set.sort_unstable();
+			for i in 0..size
+			{
+				bad.swap(i, set[i]);
+			}
+			bad.truncate(size);
+			self.items.append(&mut bad);
 		}
 		
 		self
