@@ -4,8 +4,8 @@ use rand::Rng;
 
 use std::cmp::Ordering;
 
-//TODO: penalty for new items in evaluation or something to keep good and old items in noisy environments alive
-//TODO: new selection strats?
+//TODO: penalty for new items in evaluation or something to keep good and old items in noisy environments alive (selection strategy?)
+//TODO: new selection strats? (Boltzmann)
 
 
 /// Definition of necessary methods/properties for items to be optimized
@@ -25,8 +25,11 @@ pub trait GEF
 #[derive(PartialEq, Clone)]
 pub enum Strat
 {
+	/// Strat::Deterministic = best "survival" items and randomly chosen "bad_survival" items survive
 	Deterministic,
+	/// Strat::Stochastic = "survival" + "bad_survival" items are chosen, probability to survive decreases as cubic function
 	Stochastic,
+	/// Strat::Mixed = combination of strategies above: "survival" using Deterministic strategy, "bad_survival" using Stochastic strategy
 	Mixed,
 }
 
