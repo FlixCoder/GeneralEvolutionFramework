@@ -5,13 +5,14 @@ use genevofra::*;
 use rand::Rng;
 use std::sync::Arc;
 
-const PROB_DEGREE:f64 = 0.02; //probability to increase the degree of a polynomial function by 1
+const PROB_DEGREE:f64 = 0.02; //probability to modify the degree of a polynomial function by 1
+const PROB_DEG_INC:f64 = 0.75; //probability to increase degree after modify has to take place (else decrease)
 const PROB_NEW:f64 = 0.05; //probability to set to random values with same degree
 const RANGE_NEW:f64 = 5.0; //size of interval to create random factors (-2.5 - 2.5)
 const PROB_MOD:f64 = 0.75; //for every value: probability to modify
 const RANGE_MOD:f64 = 1.0; //size of interval to modify factors (-0.5 - 0.5)
 
-const REGULARIZATION:f64 = 0.01; //factor for additional error term (multiplied to degree)
+const REGULARIZATION:f64 = 0.0001; //factor for additional error term (multiplied to degree)
 
 
 //optimizing polynomial functions to fit to the points
@@ -32,9 +33,9 @@ fn main()
 	let points = Arc::new(points);
 	
 	let mut opt = Optimizer::new();
-	opt.set_population(250)
-		.set_survive(3)
-		.set_bad_survive(7)
+	opt.set_population(500)
+		.set_survive(7)
+		.set_bad_survive(3)
 		.set_prob_mutate(0.9)
 		.set_selection_strat(Strat::Mixed)
 		.set_mean_avg(5)
@@ -44,7 +45,7 @@ fn main()
 	//train
 	for i in 0..10
 	{
-		let n = 10;
+		let n = 100;
 		let score = opt.optimize(n);
 		println!("Score after {:5} iterations: {}", (i + 1) * n, score);
 	}
@@ -129,8 +130,15 @@ impl GEF for Polynome
 		let mut rng = rand::thread_rng();
 		
 		if rng.gen::<f64>() < PROB_DEGREE
-		{ //increase polynomial degree
-			self.fct.push(0.0);
+		{ //randomly modify degree
+			if self.fct.len() <= 1 || rng.gen::<f64>() < PROB_DEG_INC
+			{ //increase polynomial degree
+				self.fct.push(0.0);
+			}
+			else
+			{ //decrease polynomial degree
+				self.fct.pop();
+			}
 		}
 		
 		if rng.gen::<f64>() < PROB_NEW
@@ -156,7 +164,7 @@ impl GEF for Polynome
 	fn evaluate(&self) -> f64
 	{
 		let mut rng = rand::thread_rng();
-		//calculate mean squared error of random batch of points
+		//calculate mean squared error of random batch of points -> seems to accept outliers
 		let mut mse = 0.0;
 		let n = 3; //batch size
 		for _ in 0..n
