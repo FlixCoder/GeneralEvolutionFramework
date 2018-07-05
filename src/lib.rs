@@ -289,7 +289,7 @@ impl<T:GEF+Clone> Optimizer<T>
 				let mut index:usize = 0;
 				while contained
 				{
-					index = (rng.gen::<f64>().powf(3.0) * (size) as f64) as usize;
+					index = (rng.gen::<f64>().powf(3.0) * self.items.len() as f64) as usize;
 					contained = set.contains(&index);
 				}
 				set.push(index);
@@ -316,7 +316,7 @@ impl<T:GEF+Clone> Optimizer<T>
 				let mut index:usize = 0;
 				while contained
 				{
-					index = (rng.gen::<f64>().powf(3.0) * (size) as f64) as usize;
+					index = (rng.gen::<f64>().powf(3.0) * bad.len() as f64) as usize;
 					contained = set.contains(&index);
 				}
 				set.push(index);
